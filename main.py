@@ -1,16 +1,14 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import List
 from database import SessionLocal, engine
-from models import Book, Base
+from models import Base, ToDo
+import crud, schemas
 
-# Create tables in the database
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# Dependency to get the database session
+# Dependency
 def get_db():
     db = SessionLocal()
     try:
@@ -18,27 +16,37 @@ def get_db():
     finally:
         db.close()
 
-# Pydantic model to use in FastAPI request and response
-class BookCreate(BaseModel):
-    title: str
-    author: str
-class BookOut(BookCreate):
-    id: int
+# ROUTES
 
-    class Config:
-        orm_mode = True
+@app.get("/todos", response_model=list[schemas.ToDoOut])
+def read_todos(db: Session = Depends(get_db)):
+    return crud.get_all_todos(db)
 
-# Endpoint to fetch all books
-@app.get("/books", response_model=List[BookOut])
-def get_books(db: Session = Depends(get_db)):
-    books = db.query(Book).all()
-    return books
+@app.get("/todos/{todo_id}", response_model=schemas.ToDoOut)
+def read_todo(todo_id: int, db: Session = Depends(get_db)):
+    todo = crud.get_todo(db, todo_id)
+    if not todo:
+        raise HTTPException(status_code=404, detail="ToDo not found")
+    return todo
 
-# Endpoint to add a new book
-@app.post("/books", response_model=BookOut)
-def add_book(book: BookCreate, db: Session = Depends(get_db)):
-    db_book = Book(title=book.title, author=book.author)
-    db.add(db_book)
-    db.commit()
-    db.refresh(db_book)
-    return db_book
+@app.post("/todos", response_model=schemas.ToDoOut)
+def create_todo(todo: schemas.ToDoCreate, db: Session = Depends(get_db)):
+    return crud.create_todo(db, todo)
+
+@app.put("/todos/{todo_id}", response_model=schemas.ToDoOut)
+def update_todo(todo_id: int, todo: schemas.ToDoUpdate, db: Session = Depends(get_db)):
+    db_todo = crud.update_todo(db, todo_id, todo)
+    if not db_todo:
+        raise HTTPException(status_code=404, detail="ToDo not found")
+    return db_todo
+
+@app.delete("/todos/{todo_id}")
+def delete_todo(todo_id: int, db: Session = Depends(get_db)):
+    todo = crud.delete_todo(db, todo_id)
+    if not todo:
+        raise HTTPException(status_code=404, detail="ToDo not found")
+    return {"message": "ToDo deleted"}
+
+@app.get("/todos/status/{completed}", response_model=list[schemas.ToDoOut])
+def filter_todos(completed: bool, db: Session = Depends(get_db)):
+    return crud.get_todos_by_status(db, completed)
