@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 
 // Update the API URL to match Django backend paths
-const API_URL = "https://to-do-list-api-integration.onrender.com/api/todos/";
+const API_URL = "https://fastapi-app-butong.onrender.com/docs";
 
 export default function TodoList() {
   const [tasks, setTasks] = useState([]);
